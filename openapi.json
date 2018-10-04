@@ -1,0 +1,323 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "",
+    "version": ""
+  },
+  "paths": {
+    "/pushgateway": {
+      "get": {
+        "tags": [
+          "github.com/go-courier/httptransport/openapi"
+        ],
+        "operationId": "OpenAPI",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BytesBuffer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pushgateway/v0/metrics": {
+      "get": {
+        "tags": [
+          "routes/pushgateway"
+        ],
+        "summary": "Get Metrics",
+        "operationId": "GetMetrics",
+        "responses": {
+          "200": {
+            "content": {
+              "": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "uint8"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubComGoCourierStatuserrorStatusErr"
+                }
+              }
+            },
+            "x-status-errors": [
+              "@StatusErr[MetricNotFound][404999002][MetricNotFound]!"
+            ]
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "routes/pushgateway"
+        ],
+        "summary": "Push Metrics",
+        "operationId": "PushMetrics",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushData"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespData"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BytesBuffer": {
+        "type": "string",
+        "format": "binary",
+        "x-go-vendor-type": "bytes.Buffer",
+        "x-id": "BytesBuffer"
+      },
+      "GithubComGoCourierStatuserrorErrorField": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "field path\nprop.slice[2].a",
+            "x-go-field-name": "Field",
+            "x-tag-json": "field",
+            "x-tag-xml": "field"
+          },
+          "in": {
+            "type": "string",
+            "description": "location\neq. body, query, header, path, formData",
+            "x-go-field-name": "In",
+            "x-tag-json": "in",
+            "x-tag-xml": "in"
+          },
+          "msg": {
+            "type": "string",
+            "description": "msg",
+            "x-go-field-name": "Msg",
+            "x-tag-json": "msg",
+            "x-tag-xml": "msg"
+          }
+        },
+        "required": [
+          "field",
+          "msg",
+          "in"
+        ],
+        "x-go-vendor-type": "github.com/go-courier/statuserror.ErrorField",
+        "x-id": "GithubComGoCourierStatuserrorErrorField"
+      },
+      "GithubComGoCourierStatuserrorErrorFields": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/GithubComGoCourierStatuserrorErrorField"
+        },
+        "x-go-vendor-type": "github.com/go-courier/statuserror.ErrorFields",
+        "x-id": "GithubComGoCourierStatuserrorErrorFields"
+      },
+      "GithubComGoCourierStatuserrorStatusErr": {
+        "type": "object",
+        "properties": {
+          "canBeTalkError": {
+            "type": "boolean",
+            "description": "can be task error\nfor client to should error msg to end user",
+            "x-go-field-name": "CanBeTalkError",
+            "x-tag-json": "canBeTalkError",
+            "x-tag-xml": "canBeTalkError"
+          },
+          "code": {
+            "type": "integer",
+            "format": "int32",
+            "description": "unique err code",
+            "x-go-field-name": "Code",
+            "x-tag-json": "code",
+            "x-tag-xml": "code"
+          },
+          "desc": {
+            "type": "string",
+            "description": "desc of err",
+            "x-go-field-name": "Desc",
+            "x-tag-json": "desc",
+            "x-tag-xml": "desc"
+          },
+          "errorFields": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubComGoCourierStatuserrorErrorFields"
+              },
+              {
+                "description": "error in where fields",
+                "x-go-field-name": "ErrorFields",
+                "x-tag-json": "errorFields",
+                "x-tag-xml": "errorFields"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "request ID or other request context",
+            "x-go-field-name": "ID",
+            "x-tag-json": "id",
+            "x-tag-xml": "id"
+          },
+          "key": {
+            "type": "string",
+            "description": "key of err",
+            "x-go-field-name": "Key",
+            "x-tag-json": "key",
+            "x-tag-xml": "key"
+          },
+          "msg": {
+            "type": "string",
+            "description": "msg of err",
+            "x-go-field-name": "Msg",
+            "x-tag-json": "msg",
+            "x-tag-xml": "msg"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "error tracing",
+            "x-go-field-name": "Sources",
+            "x-tag-json": "sources",
+            "x-tag-xml": "sources"
+          }
+        },
+        "required": [
+          "key",
+          "code",
+          "msg",
+          "desc",
+          "canBeTalkError",
+          "id",
+          "sources",
+          "errorFields"
+        ],
+        "x-go-vendor-type": "github.com/go-courier/statuserror.StatusErr",
+        "x-id": "GithubComGoCourierStatuserrorStatusErr"
+      },
+      "Metric": {
+        "type": "object",
+        "properties": {
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Label",
+            "x-go-field-name": "Labels",
+            "x-tag-json": "labels"
+          },
+          "metric_name": {
+            "type": "string",
+            "description": "metric name, like test_metric",
+            "x-go-field-name": "MetricName",
+            "x-tag-json": "metric_name"
+          },
+          "metric_value": {
+            "type": "number",
+            "format": "double",
+            "description": "metric value",
+            "x-go-field-name": "MetricValue",
+            "x-tag-json": "metric_value,omitempty"
+          }
+        },
+        "required": [
+          "metric_name",
+          "labels"
+        ],
+        "x-id": "Metric"
+      },
+      "PushData": {
+        "type": "object",
+        "properties": {
+          "expire_time": {
+            "type": "integer",
+            "format": "int32",
+            "description": "metric expire time，default 1800 seconds",
+            "x-go-field-name": "ExpireTime",
+            "x-tag-json": "expire_time,omitempty"
+          },
+          "id": {
+            "type": "string",
+            "description": "Id",
+            "x-go-field-name": "ID",
+            "x-tag-json": "id"
+          },
+          "job_name": {
+            "type": "string",
+            "description": "Job Name",
+            "x-go-field-name": "JobName",
+            "x-tag-json": "job_name"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Metric"
+            },
+            "x-go-field-name": "Metrics",
+            "x-tag-json": "metrics"
+          }
+        },
+        "required": [
+          "metrics",
+          "job_name",
+          "id"
+        ],
+        "x-id": "PushData"
+      },
+      "RespData": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32",
+            "x-go-field-name": "Code",
+            "x-tag-json": "code"
+          },
+          "error_message": {
+            "type": "string",
+            "x-go-field-name": "ErrorMessage",
+            "x-tag-json": "error_message"
+          },
+          "status": {
+            "type": "string",
+            "x-go-field-name": "Status",
+            "x-tag-json": "status"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "error_message"
+        ],
+        "x-id": "RespData"
+      }
+    }
+  }
+}
