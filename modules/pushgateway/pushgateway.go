@@ -3,25 +3,25 @@ package pushgateway
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Jeffail/tunny"
 	"github.com/pippozq/pushgateway/constants/errors"
-	"github.com/pippozq/pushgateway/modules/redis"
 	"github.com/pippozq/pushgateway/global"
+	"github.com/pippozq/pushgateway/modules/redis"
 	"github.com/sirupsen/logrus"
+	"runtime"
 	"strconv"
 	"strings"
-	"github.com/Jeffail/tunny"
-	"runtime"
 )
 
 type PushGateWay struct {
-	data     *PushData
-	Agent    *redis.Agent
+	data  *PushData
+	Agent *redis.Agent
 }
 
 func NewPushGateWayController(data *PushData, agent *redis.Agent) *PushGateWay {
 	return &PushGateWay{
-		data:     data,
-		Agent:    agent,
+		data:  data,
+		Agent: agent,
 	}
 }
 
@@ -74,8 +74,7 @@ func (p *PushGateWay) CacheMetric() (respData *RespData, err error) {
 	return respData, nil
 }
 
-
-func (p *PushGateWay)getMetricList(key string,metricList []*PushData){
+func (p *PushGateWay) getMetricList(key string, metricList []*PushData) {
 	metricsByte, err := p.Agent.Get(key)
 	if err != nil {
 		logrus.Error(err)

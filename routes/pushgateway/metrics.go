@@ -2,10 +2,10 @@ package pushgateway
 
 import (
 	"context"
-	"github.com/pippozq/pushgateway/global"
-	"github.com/pippozq/pushgateway/modules/pushgateway"
 	"github.com/go-courier/courier"
 	"github.com/go-courier/httptransport/httpx"
+	"github.com/pippozq/pushgateway/global"
+	"github.com/pippozq/pushgateway/modules/pushgateway"
 )
 
 var MetricsRouter = courier.NewRouter(Metrics{})

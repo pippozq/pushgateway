@@ -6,8 +6,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-
-
 type Agent struct {
 	Pool redis.Pool
 	// redis
@@ -18,7 +16,7 @@ type Agent struct {
 	RedisExpireTime string `conf:"env"`
 }
 
-func (agent *Agent)InitPool() redis.Pool {
+func (agent *Agent) InitPool() redis.Pool {
 	return redis.Pool{
 		Wait:      true,
 		MaxIdle:   120,

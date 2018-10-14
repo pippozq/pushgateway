@@ -1,0 +1,23 @@
+version: "2"
+services:
+  pushgateway:
+    image: registry.cn-hangzhou.aliyuncs.com/pippozq_public/pushgateway/pushgateway:latest
+    labels:
+      io.rancher.container.pull_image: always
+      io.rancher.container.start_once: "true"
+      lb.g7pay.expose80: /pushgateway
+    environment:
+      GOENV: ${GOENV}
+      S___LOG_LEVEL: ${S___LOG_LEVEL}
+      S___POOLSIZE: ${S___POOLSIZE}
+      S___REDISAGENT_POOL_IDLETIMEOUT: ${S___REDISAGENT_POOL_IDLETIMEOUT}
+      S___REDISAGENT_REDISDB: ${S___REDISAGENT_REDISDB}
+      S___REDISAGENT_REDISEXPIRETIME: ${S___REDISAGENT_REDISEXPIRETIME}
+      S___REDISAGENT_REDISHOST: ${S___REDISAGENT_REDISHOST}
+      S___REDISAGENT_REDISPASSWORD: ${S___REDISAGENT_REDISPASSWORD}
+      S___REDISAGENT_REDISPORT: ${S___REDISAGENT_REDISPORT}
+      S___SERVER_PORT: ${S___SERVER_PORT}
+    dns_search:
+    - rancher.internal
+    dns:
+    - 169.254.169.250

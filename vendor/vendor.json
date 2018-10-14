@@ -33,6 +33,12 @@
 			"revisionTime": "2018-08-26T08:18:39Z"
 		},
 		{
+			"checksumSHA1": "Ca1qk69zZVEHPlosoyu71xZhkuQ=",
+			"path": "github.com/go-courier/envconf",
+			"revision": "0287cf37759c94c857b4d8d9a61f210f3d50ff09",
+			"revisionTime": "2018-08-30T01:40:11Z"
+		},
+		{
 			"checksumSHA1": "aH28yU2RkMGsBgQ5DLKD6iNfjHE=",
 			"path": "github.com/go-courier/httptransport",
 			"revision": "b57749b8671df074d9cf95a98f01f8c0c5daf3e4",
