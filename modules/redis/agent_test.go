@@ -8,9 +8,9 @@ var (
 
 func TestAgent_Set(t *testing.T) {
 	agent.RedisHost = "172.16.21.59"
-	agent.RedisPassword = "reds"
+	agent.RedisPassword = "redis"
 	agent.RedisDb = "1"
-	agent.RedisPort = "6379"
+	agent.RedisPort = 36379
 	agent.Pool = agent.InitPool()
-	agent.Set("test", []byte("test expire"), "60")
+	agent.Set("test", []byte("test expire"), 60)
 }

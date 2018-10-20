@@ -10,21 +10,24 @@ type Agent struct {
 	Pool redis.Pool
 	// redis
 	RedisHost       string `conf:"env"`
-	RedisPort       string `conf:"env"`
+	RedisPort       int `conf:"env"`
 	RedisPassword   string `conf:"env"`
 	RedisDb         string `conf:"env"`
-	RedisExpireTime string `conf:"env"`
+	RedisExpireTime int `conf:"env"`
+	MaxIdle         int     `conf:"env"`
+	MaxActive       int     `conf:"env"`
 }
 
 func (agent *Agent) InitPool() redis.Pool {
 	return redis.Pool{
 		Wait:      true,
-		MaxIdle:   120,
-		MaxActive: 100,
+		MaxIdle:   agent.MaxIdle,
+		MaxActive: agent.MaxActive,
 		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", fmt.Sprintf("%s:%s", agent.RedisHost, agent.RedisPort))
+			c, err := redis.Dial("tcp", fmt.Sprintf("%s:%d", agent.RedisHost, agent.RedisPort))
 			if err != nil {
 				logrus.Errorf("Connect to redis error", err)
+				panic(err)
 				return c, err
 			}
 			if agent.RedisPassword != "" {
@@ -67,7 +70,7 @@ func (agent *Agent) GetKeyList(key string) (keys []string, err error) {
 	return keys, nil
 }
 
-func (agent *Agent) Set(key string, value []byte, expire string) (err error) {
+func (agent *Agent) Set(key string, value []byte, expire int) (err error) {
 	c, err := agent.selectDB(agent.RedisDb)
 	defer c.Close()
 	if err != nil {

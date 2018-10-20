@@ -3,38 +3,48 @@ package pushgateway
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Jeffail/tunny"
 	"github.com/pippozq/pushgateway/constants/errors"
 	"github.com/pippozq/pushgateway/global"
 	"github.com/pippozq/pushgateway/modules/redis"
 	"github.com/sirupsen/logrus"
-	"runtime"
-	"strconv"
 	"strings"
+	"text/template"
+	"bytes"
+	"sync"
+	"github.com/panjf2000/ants"
 )
 
 type PushGateWay struct {
 	data  *PushData
 	Agent *redis.Agent
+	MetricTemplate *template.Template
 }
 
 func NewPushGateWayController(data *PushData, agent *redis.Agent) *PushGateWay {
+	t, err := template.ParseFiles("./config/label.template")
+	if err != nil {
+		logrus.Errorf("Read Template Error %s", err.Error())
+		panic(err)
+	}
 	return &PushGateWay{
 		data:  data,
 		Agent: agent,
+		MetricTemplate: t,
 	}
 }
 
-func (p *PushGateWay) getText(data PushData) (metricText string) {
+func (p *PushGateWay) getText(data PushData, textChan chan []string) {
+	var metricList []string
 	for _, metric := range data.Metrics {
-		var labelList []string
-		for labelKey, labelValue := range metric.Labels {
-			t := fmt.Sprintf("%s=\"%s\"", labelKey, labelValue)
-			labelList = append(labelList, t)
+		buff := bytes.NewBufferString("")
+		err := p.MetricTemplate.ExecuteTemplate(buff, "label.template", metric)
+		if err != nil {
+			logrus.Error(err)
+			continue
 		}
-
-		metricText += fmt.Sprintf("%s{%s} %f\n", metric.MetricName, strings.Join(labelList, ","), metric.MetricValue)
+		metricList = append(metricList, buff.String())
 	}
+	textChan <- metricList
 	return
 }
 
@@ -61,7 +71,7 @@ func (p *PushGateWay) CacheMetric() (respData *RespData, err error) {
 	expireTime := global.Config.RedisAgent.RedisExpireTime
 
 	if p.data.ExpireTime > 0 {
-		expireTime = strconv.Itoa(p.data.ExpireTime)
+		expireTime = p.data.ExpireTime
 	}
 
 	pushData, err := json.Marshal(p.data)
@@ -87,40 +97,69 @@ func (p *PushGateWay) getMetricList(key string, metricList []*PushData) {
 	metricList = append(metricList, metric)
 }
 
+type PoolRunner struct {
+	Key string
+	TextChan chan []string
+}
+
+func (p *PushGateWay)getMetricFromRedis(r interface{}) error{
+
+	metricsByte, err := p.Agent.Get(r.(*PoolRunner).Key)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	metric := new(PushData)
+	err = json.Unmarshal(metricsByte, &metric)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	p.getText(*metric,r.(*PoolRunner).TextChan)
+	return nil
+}
+
 func (p *PushGateWay) GetMetrics() (metricByte []byte, err error) {
-	var metricList []*PushData
 	keyList, err := p.Agent.GetKeyList("*")
 	if err != nil {
 		return nil, errors.MetricNotFound
 	}
+	if len(keyList) == 0 {
+		return nil,nil
+	}
+	textChan := make(chan []string, len(keyList))
 
-	metricPool := tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
-		key := payload.(string)
-		metricsByte, err := p.Agent.Get(key)
-		if err != nil {
-			logrus.Error(err)
-		}
-		metric := new(PushData)
-		err = json.Unmarshal(metricsByte, &metric)
-		if err != nil {
-			logrus.Error(err)
-		}
-		metricList = append(metricList, metric)
-
-		return metricList
+	wg := new(sync.WaitGroup)
+	antPool, _ := ants.NewPoolWithFunc(global.Config.PoolSize, func(i interface{}) error {
+		p.getMetricFromRedis(i)
+		wg.Done()
+		return nil
 	})
-	defer metricPool.Close()
-
-	metricPool.SetSize(global.Config.PoolSize)
-
-	for _, key := range keyList {
-		metricPool.Process(key)
+	defer antPool.Release()
+	for _,key := range keyList {
+		wg.Add(1)
+		r := &PoolRunner{
+			Key: key,
+			TextChan: textChan,
+		}
+		antPool.Serve(r)
 	}
-	metricStr := ""
-	for _, metric := range metricList {
-		metricStr += p.getText(*metric)
-	}
+	wg.Wait()
 
+	var metricStrList []string
+
+	for ml := range textChan {
+		for _, metricValue := range ml {
+			metricStrList = append(metricStrList, metricValue)
+		}
+
+		if len(textChan) <= 0 {
+			close(textChan)
+			break
+		}
+	}
+	metricStr := strings.Join(metricStrList, "\n")
+	metricStr = fmt.Sprintf("%s\n", metricStr)
 	return []byte(metricStr), nil
 }
 
