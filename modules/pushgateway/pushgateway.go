@@ -1,22 +1,22 @@
 package pushgateway
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/panjf2000/ants"
 	"github.com/pippozq/pushgateway/constants/errors"
 	"github.com/pippozq/pushgateway/global"
 	"github.com/pippozq/pushgateway/modules/redis"
 	"github.com/sirupsen/logrus"
 	"strings"
-	"text/template"
-	"bytes"
 	"sync"
-	"github.com/panjf2000/ants"
+	"text/template"
 )
 
 type PushGateWay struct {
-	data  *PushData
-	Agent *redis.Agent
+	data           *PushData
+	Agent          *redis.Agent
 	MetricTemplate *template.Template
 }
 
@@ -27,8 +27,8 @@ func NewPushGateWayController(data *PushData, agent *redis.Agent) *PushGateWay {
 		panic(err)
 	}
 	return &PushGateWay{
-		data:  data,
-		Agent: agent,
+		data:           data,
+		Agent:          agent,
 		MetricTemplate: t,
 	}
 }
@@ -98,11 +98,11 @@ func (p *PushGateWay) getMetricList(key string, metricList []*PushData) {
 }
 
 type PoolRunner struct {
-	Key string
+	Key      string
 	TextChan chan []string
 }
 
-func (p *PushGateWay)getMetricFromRedis(r interface{}) error{
+func (p *PushGateWay) getMetricFromRedis(r interface{}) error {
 
 	metricsByte, err := p.Agent.Get(r.(*PoolRunner).Key)
 	if err != nil {
@@ -115,7 +115,7 @@ func (p *PushGateWay)getMetricFromRedis(r interface{}) error{
 		logrus.Error(err)
 		return err
 	}
-	p.getText(*metric,r.(*PoolRunner).TextChan)
+	p.getText(*metric, r.(*PoolRunner).TextChan)
 	return nil
 }
 
@@ -125,7 +125,7 @@ func (p *PushGateWay) GetMetrics() (metricByte []byte, err error) {
 		return nil, errors.MetricNotFound
 	}
 	if len(keyList) == 0 {
-		return nil,nil
+		return nil, nil
 	}
 	textChan := make(chan []string, len(keyList))
 
@@ -136,10 +136,10 @@ func (p *PushGateWay) GetMetrics() (metricByte []byte, err error) {
 		return nil
 	})
 	defer antPool.Release()
-	for _,key := range keyList {
+	for _, key := range keyList {
 		wg.Add(1)
 		r := &PoolRunner{
-			Key: key,
+			Key:      key,
 			TextChan: textChan,
 		}
 		antPool.Serve(r)

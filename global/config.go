@@ -1,13 +1,12 @@
 package global
 
 import (
-	"github.com/go-courier/envconf"
 	"github.com/go-courier/httptransport"
+	"github.com/pippozq/envconf"
 	"github.com/pippozq/pushgateway/modules/redis"
 	"github.com/sirupsen/logrus"
 	"os"
 	"strings"
-	"fmt"
 )
 
 func init() {
@@ -47,8 +46,8 @@ var Config = struct {
 		RedisPassword:   "redis",
 		RedisDb:         "1",
 		RedisExpireTime: 70,
-		MaxActive:  50,
-		MaxIdle:    10,
+		MaxActive:       50,
+		MaxIdle:         10,
 	},
 	PoolSize: 200,
 }

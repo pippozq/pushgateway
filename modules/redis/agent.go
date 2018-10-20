@@ -10,12 +10,12 @@ type Agent struct {
 	Pool redis.Pool
 	// redis
 	RedisHost       string `conf:"env"`
-	RedisPort       int `conf:"env"`
+	RedisPort       int    `conf:"env"`
 	RedisPassword   string `conf:"env"`
 	RedisDb         string `conf:"env"`
-	RedisExpireTime int `conf:"env"`
-	MaxIdle         int     `conf:"env"`
-	MaxActive       int     `conf:"env"`
+	RedisExpireTime int    `conf:"env"`
+	MaxIdle         int    `conf:"env"`
+	MaxActive       int    `conf:"env"`
 }
 
 func (agent *Agent) InitPool() redis.Pool {
