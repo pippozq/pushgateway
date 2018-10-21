@@ -1,11 +1,12 @@
-# pushgateway
+# Pushgateway
 ## Use for
-1. Receive metrics from http and cache them in redis 
+1. Receive metrics from http and cache them in redis
 2. Provide metrics as text for Prometheus
-## Differences with official pushgateway
-1. Use Redis as cache, instead of memory, can be used as cluster
-2. Every metric has expire time 
-
+## Difference between [official pushgateway](https://github.com/prometheus/pushgateway)
+1. Use redis as cache, instead of memory, can be used as cluster
+2. Every metric has expire time
+3. With no web ui
+4. Use json format
 ## Docker
 1. Env Config
 
