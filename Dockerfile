@@ -8,7 +8,7 @@ FROM golang:1.11-alpine
 
 ENV  GOENV DEV
 ENV  S___Log_Level debug
-ENV  S___PoolSize 200
+ENV  S___RedisAgent_PoolSize 200
 ENV  S___RedisAgent_KeyCount 100
 ENV  S___RedisAgent_PipelineWaitTime 3
 ENV  S___RedisAgent_RedisDb 1

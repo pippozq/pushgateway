@@ -23,7 +23,7 @@ spec:
           value: "DEV"
         - name: S___Log_Level
           value: "debug"
-        - name: S___PoolSize
+        - name: S___RedisAgent_PoolSize
           value: "200"
         - name: S___RedisAgent_KeyCount
           value: "100"
