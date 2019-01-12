@@ -29,7 +29,7 @@ type GetMetrics struct {
 }
 
 func (req GetMetrics) Output(c context.Context) (resp interface{}, err error) {
-	return pushgateway.NewPushGateWayController(nil, global.Config.RedisAgent).GetMetrics()
+	return pushgateway.NewPushGateWayController(global.Config.RedisAgent).GetMetrics()
 }
 
 // Push Metrics
@@ -40,7 +40,7 @@ type PushMetrics struct {
 
 func (req PushMetrics) Output(c context.Context) (resp interface{}, err error) {
 
-	pushCtrl := pushgateway.NewPushGateWayController(&req.Body, global.Config.RedisAgent)
+	pushCtrl := pushgateway.NewPushGateWayController(global.Config.RedisAgent)
 
-	return pushCtrl.CacheMetric()
+	return pushCtrl.CacheMetric(&req.Body)
 }

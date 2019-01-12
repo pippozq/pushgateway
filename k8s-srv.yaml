@@ -1,0 +1,65 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: srv-pushgateway
+  name: srv-pushgateway
+spec:
+  replicas: 2
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: srv-pushgateway
+    spec:
+      containers:
+      - env:
+        - name: GOENV
+          value: "DEV"
+        - name: S___Log_Level
+          value: "debug"
+        - name: S___PoolSize
+          value: "200"
+        - name: S___RedisAgent_KeyCount
+          value: "100"
+        - name: S___RedisAgent_PipelineWaitTime
+          value: "3"
+        - name: S___RedisAgent_RedisDb
+          value: "3"
+        - name: S___RedisAgent_RedisExpireTime
+          value: "1800"
+        - name: S___RedisAgent_RedisHost
+          value: "172.16.100.13"
+        - name: S___RedisAgent_RedisPassword
+          value: "redis"
+        - name: S___RedisAgent_RedisPort
+          value: "6379"
+        - name: S___Server_Port
+          value: "80"
+        image: registry.cn-hangzhou.aliyuncs.com/pippozq_public/pushgateway:latest
+        ports:
+          - name: http-port
+            containerPort: 80
+        name: srv-pushgateway
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: srv-pushgateway
+  name: srv-pushgateway
+spec:
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: http-port
+      name: http-srv-pushgateway
+  selector:
+    app: srv-pushgateway

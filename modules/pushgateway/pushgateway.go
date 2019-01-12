@@ -4,48 +4,34 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	goRedis "github.com/go-redis/redis"
 	"github.com/panjf2000/ants"
 	"github.com/pippozq/pushgateway/constants/errors"
 	"github.com/pippozq/pushgateway/global"
 	"github.com/pippozq/pushgateway/modules/redis"
-	"github.com/sirupsen/logrus"
 	"strings"
 	"sync"
 	"text/template"
+	"time"
 )
+
+const (
+	MetricPrefix = "metric"
+)
+
+var (
+	MetricsChannel = make(chan *PushData, global.Config.RedisAgent.KeyCount)
+)
+
+func init() {
+	p := NewPushGateWayController(global.Config.RedisAgent)
+	go p.CacheMetrics()
+}
 
 type PushGateWay struct {
 	data           *PushData
 	Agent          *redis.Agent
 	MetricTemplate *template.Template
-}
-
-func NewPushGateWayController(data *PushData, agent *redis.Agent) *PushGateWay {
-	t, err := template.ParseFiles("./config/label.template")
-	if err != nil {
-		logrus.Errorf("Read Template Error %s", err.Error())
-		panic(err)
-	}
-	return &PushGateWay{
-		data:           data,
-		Agent:          agent,
-		MetricTemplate: t,
-	}
-}
-
-func (p *PushGateWay) getText(data PushData, textChan chan []string) {
-	var metricList []string
-	for _, metric := range data.Metrics {
-		buff := bytes.NewBufferString("")
-		err := p.MetricTemplate.ExecuteTemplate(buff, "label.template", metric)
-		if err != nil {
-			logrus.Error(err)
-			continue
-		}
-		metricList = append(metricList, buff.String())
-	}
-	textChan <- metricList
-	return
 }
 
 type Metric struct {
@@ -67,90 +53,248 @@ type RespData struct {
 	ErrorMessage string `json:"error_message"`
 }
 
-func (p *PushGateWay) CacheMetric() (respData *RespData, err error) {
-	expireTime := global.Config.RedisAgent.RedisExpireTime
+func NewPushGateWayController(agent *redis.Agent) *PushGateWay {
+	t, err := template.ParseFiles("./config/label.template")
+	if err != nil {
+		global.Config.Log.Errorf("Read Template Error %s", err.Error())
+		panic(err)
+	}
+	return &PushGateWay{
+		Agent:          agent,
+		MetricTemplate: t,
+	}
+}
 
-	if p.data.ExpireTime > 0 {
-		expireTime = p.data.ExpireTime
+func (p *PushGateWay) Paging(keys []string) (keysGroup [][]string) {
+
+	keysGroup = make([][]string, 0)
+
+	step := len(keys) / p.Agent.KeyCount
+
+	if len(keys) <= p.Agent.KeyCount {
+		keysGroup = append(keysGroup, keys)
+		return
+	}
+	head := 0
+	tail := p.Agent.KeyCount
+	for i := 0; i <= step; i++ {
+		if tail < len(keys) {
+			if i == 0 {
+				keysGroup = append(keysGroup, keys[head:tail])
+				head = tail
+				tail += p.Agent.KeyCount
+			} else if i == step {
+				keysGroup = append(keysGroup, keys[tail:])
+			} else {
+				keysGroup = append(keysGroup, keys[head:tail])
+				head = tail
+				tail += p.Agent.KeyCount
+			}
+		} else {
+			keysGroup = append(keysGroup, keys[head:])
+		}
+	}
+	return
+}
+
+type PipelineData struct {
+	Expire int
+	Key    string
+	Value  []byte
+}
+
+func (p *PushGateWay) WriteToRedisPipeline(metrics []*PushData) (err error) {
+
+	pipelineList := make([]*PipelineData, 0)
+	for _, data := range metrics {
+
+		mkv := new(PipelineData)
+
+		mkv.Expire = p.Agent.RedisExpireTime
+		mkv.Key = fmt.Sprintf("%s_%s_%s", MetricPrefix, data.JobName, data.ID)
+
+		if data.ExpireTime > 0 {
+			mkv.Expire = data.ExpireTime
+		} else {
+			mkv.Expire = p.Agent.RedisExpireTime
+		}
+		pushData, err := json.Marshal(data)
+		if err != nil {
+			global.Config.Log.Error(err)
+			continue
+		}
+		mkv.Value = pushData
+
+		pipelineList = append(pipelineList, mkv)
 	}
 
-	pushData, err := json.Marshal(p.data)
+	pipeline := p.Agent.Pool.Pipeline()
+
+	for _, mkv := range pipelineList {
+		pipeline.Set(mkv.Key, mkv.Value, time.Duration(mkv.Expire)*time.Second)
+	}
+	result, err := pipeline.Exec()
+	if err != nil {
+		return err
+	}
+	for _, r := range result {
+		global.Config.Log.Debug(r.Name(), r.Args(), r.Err())
+	}
+	return nil
+}
+
+func (p *PushGateWay) ReadFromRedisPipeline(keys []string) (metricValues [][]byte, err error) {
+
+	pipeline := p.Agent.Pool.Pipeline()
+
+	for _, key := range keys {
+		pipeline.Get(key)
+	}
+
+	result, err := pipeline.Exec()
 	if err != nil {
 		return nil, err
 	}
-	p.Agent.Set(fmt.Sprintf("%s_%s", p.data.JobName, p.data.ID), pushData, expireTime)
+	for _, r := range result {
+		result, err := r.(*goRedis.StringCmd).Result()
+		if err != nil {
+			global.Config.Log.Error(err)
+			continue
+		}
+		metricValues = append(metricValues, []byte(result))
+	}
+	return metricValues, nil
+}
+
+func (p *PushGateWay) getText(data PushData, textChan chan []string) {
+	var metricList []string
+	for _, metric := range data.Metrics {
+		buff := bytes.NewBufferString("")
+		err := p.MetricTemplate.ExecuteTemplate(buff, "label.template", metric)
+		if err != nil {
+			global.Config.Log.Error(err)
+			continue
+		}
+		metricList = append(metricList, buff.String())
+	}
+	textChan <- metricList
+	return
+}
+
+func (p *PushGateWay) CacheMetrics() {
+	metrics := make([]*PushData, 0)
+	for {
+		select {
+		case metric := <-MetricsChannel:
+			if len(metrics) == global.Config.RedisAgent.KeyCount {
+				go func(data []*PushData) {
+					p.WriteToRedisPipeline(data)
+				}(metrics)
+				metrics = make([]*PushData, 0)
+
+			} else {
+				metrics = append(metrics, metric)
+			}
+		case <-time.After(time.Second * time.Duration(p.Agent.PipelineWaitTime)):
+			if len(metrics) != 0 {
+				go func(data []*PushData) {
+					p.WriteToRedisPipeline(data)
+				}(metrics)
+				metrics = make([]*PushData, 0)
+			}
+			global.Config.Log.Debug("Wait Input")
+
+		}
+	}
+}
+
+func (p *PushGateWay) CacheMetric(data *PushData) (respData *RespData, err error) {
+	MetricsChannel <- data
+
 	respData = new(RespData)
 	respData.Code = 200
+	respData.Status = "cached"
 	return respData, nil
 }
 
 func (p *PushGateWay) getMetricList(key string, metricList []*PushData) {
 	metricsByte, err := p.Agent.Get(key)
 	if err != nil {
-		logrus.Error(err)
+		global.Config.Log.Error(err)
 	}
 	metric := new(PushData)
 	err = json.Unmarshal(metricsByte, &metric)
 	if err != nil {
-		logrus.Error(err)
+		global.Config.Log.Error(err)
 	}
 	metricList = append(metricList, metric)
 }
 
 type PoolRunner struct {
-	Key      string
+	Keys     []string
 	TextChan chan []string
 }
 
 func (p *PushGateWay) getMetricFromRedis(r interface{}) error {
 
-	metricsByte, err := p.Agent.Get(r.(*PoolRunner).Key)
+	metricsValues, err := p.ReadFromRedisPipeline(r.(*PoolRunner).Keys)
 	if err != nil {
-		logrus.Error(err)
-		return err
+		global.Config.Log.Error(err)
+		return nil
 	}
-	metric := new(PushData)
-	err = json.Unmarshal(metricsByte, &metric)
-	if err != nil {
-		logrus.Error(err)
-		return err
+	for _, metricsValue := range metricsValues {
+		metric := new(PushData)
+		err = json.Unmarshal(metricsValue, &metric)
+		if err != nil {
+			global.Config.Log.Error(err)
+			return nil
+		}
+		p.getText(*metric, r.(*PoolRunner).TextChan)
 	}
-	p.getText(*metric, r.(*PoolRunner).TextChan)
+
 	return nil
 }
 
 func (p *PushGateWay) GetMetrics() (metricByte []byte, err error) {
-	keyList, err := p.Agent.GetKeyList("*")
+	var metricList []string
+	keyList, err := p.Agent.GetKeyList(fmt.Sprintf("%s_*", MetricPrefix))
 	if err != nil {
+		global.Config.Log.Error(err)
+		return nil, err
+	}
+
+	if len(keyList) == 0 {
 		return nil, errors.MetricNotFound
 	}
-	if len(keyList) == 0 {
-		return nil, nil
-	}
+
+	keysGroup := p.Paging(keyList)
+
 	textChan := make(chan []string, len(keyList))
 
 	wg := new(sync.WaitGroup)
-	antPool, _ := ants.NewPoolWithFunc(global.Config.PoolSize, func(i interface{}) error {
-		p.getMetricFromRedis(i)
+
+	antPool, _ := ants.NewPoolWithFunc(p.Agent.PoolSize, func(i interface{}) {
+		if err = p.getMetricFromRedis(i); err != nil {
+			global.Config.Log.Error(err)
+		}
 		wg.Done()
-		return nil
 	})
 	defer antPool.Release()
-	for _, key := range keyList {
+	for _, keys := range keysGroup {
 		wg.Add(1)
 		r := &PoolRunner{
-			Key:      key,
+			Keys:     keys,
 			TextChan: textChan,
 		}
-		antPool.Serve(r)
+		if err = antPool.Serve(r); err != nil {
+			global.Config.Log.Error(err)
+		}
 	}
 	wg.Wait()
 
-	var metricStrList []string
-
 	for ml := range textChan {
 		for _, metricValue := range ml {
-			metricStrList = append(metricStrList, metricValue)
+			metricList = append(metricList, metricValue)
 		}
 
 		if len(textChan) <= 0 {
@@ -158,7 +302,7 @@ func (p *PushGateWay) GetMetrics() (metricByte []byte, err error) {
 			break
 		}
 	}
-	metricStr := strings.Join(metricStrList, "\n")
+	metricStr := strings.Join(metricList, "\n")
 	metricStr = fmt.Sprintf("%s\n", metricStr)
 	return []byte(metricStr), nil
 }
