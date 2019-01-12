@@ -11,22 +11,23 @@
 1. Env Config
 
 ```
-S___SERVER_PORT=8000                // http service port
-S___POOLSIZE=200                    // goroutine pool size
-S___REDISAGENT_MAXACTIVE=50         // redis conf
-S___REDISAGENT_MAXIDLE=10
-S___REDISAGENT_REDISDB=1
-S___REDISAGENT_REDISEXPIRETIME=1800
-S___REDISAGENT_REDISHOST=192.16.3.40
-S___REDISAGENT_REDISPASSWORD=redis
-S___REDISAGENT_REDISPORT=6379
+S___Log_Level debug                  // log level
+S___RedisAgent_PoolSize 200          //  redis pool
+S___RedisAgent_KeyCount 100
+S___RedisAgent_PipelineWaitTime 3    
+S___RedisAgent_RedisDb 1
+S___RedisAgent_RedisExpireTime 70
+S___RedisAgent_RedisHost 127.0.0.1
+S___RedisAgent_RedisPassword redis
+S___RedisAgent_RedisPort 6379
+S___Server_Port 80
 ```
 
 2. Build
 ```
 docker build -t pushgateway:1 .
 ```
-3. Provide docker-compose.yml
+3. Provide k8s-srv.yml
 
 ## How to use?
 1. Json Format
